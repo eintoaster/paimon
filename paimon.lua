@@ -1,732 +1,446 @@
-local frames = 0
-local animTime = global_vars.real_time()
-local hitboxes = {
-    [0] = "generic",
-    [1] = "head",
-    [2] = "chest",
-    [3] = "stomach",
-    [4] = "left arm",
-    [5] = "right arm",
-    [6] = "left leg",
-    [7] = "right leg",
-    [10] = "gear",
-}
+--[[
+    paimon.lua  -  Paimon companion for lmaobox (TF2)
+    https://github.com/eintoaster/paimon
 
-local reasons = {
-    [0] = "Hit",
-    [1] = "resolver",
-    [2] = "spread",
-    [3] = "occlusion",
-    [4] = "prediction error",
-}
+    - Animated Paimon (53 frames) in the corner of your screen
+    - Drag her anywhere while the lmaobox menu is open (her spot is remembered)
+    - Genshin-style speech bubble: hit logs ("You hit Heavy for 54 damage! 246 HP left!"),
+      lines when you get a kill or die, and a random voice line on kills
+    - Installs her files by itself the first time (pictures, font and voice lines from GitHub):
+        Team Fortress 2\destiny_files\paimon\frames\frame_N.png + Genshin_Impact.ttf
+        Team Fortress 2\tf\sound\destiny_paimon\N.wav      (TF2 only plays sounds from its sound folder)
 
-local console = render.create_font("Trebuchet MS", 15, 600, e_font_flags.ANTIALIAS)
-local message = nil
-local show = false
-local time = global_vars.real_time()
+    (destiny.lua has Paimon built in too: don't load both, or you get two Paimons.)
+]]
 
+---------------------------------------------------------------------------
+-- Settings: change these to your liking
+---------------------------------------------------------------------------
+local SIZE          = 1.0     -- 1.0 = normal, 0.5 = half, 2.0 = double
+local VOICE_ON_KILL = true    -- play a random voice line when you get a kill
+local HIT_LOGS      = true    -- bubble on every hit: who, how much damage, HP left
+local HIT_LOG_TIME  = 4       -- seconds a hit log stays
+local KILL_LINES    = true    -- bubble lines on kills and deaths
+local GENSHIN_FONT  = true    -- use the Genshin font in her bubble
 
-local paimon_enable = menu.add_checkbox("Genshin Impact", "enable", false)
-local paimon_logs = menu.add_checkbox("Genshin Impact", "hit logs", false)
-local paimon_logs_timer = menu.add_slider("Genshin Impact", "hit logs timer", 3.0, 12.0)
+---------------------------------------------------------------------------
+-- Files
+---------------------------------------------------------------------------
+local REPO = "https://raw.githubusercontent.com/eintoaster/paimon/main/"
+local FRAMES, VOICES = 53, 57
+local W0, H0 = 397, 465                                     -- size of one frame
+local floor, min, max = math.floor, math.min, math.max
 
+local function exists(path)
+    local ok, f = pcall(io.open, path, "rb")
+    if ok and f then f:close(); return true end
+    return false
+end
 
+local function installed()
+    return exists("destiny_files/paimon/frames/frame_52.png") and exists("destiny_files/paimon/Genshin_Impact.ttf")
+        and exists("tf/sound/destiny_paimon/57.wav")
+end
 
-local p000 = render.load_image("./csgo/paimon/paimon_000.png")
-local p001 = render.load_image("./csgo/paimon/paimon_001.png")
-local p002 = render.load_image("./csgo/paimon/paimon_002.png")
-local p003 = render.load_image("./csgo/paimon/paimon_003.png")
-local p004 = render.load_image("./csgo/paimon/paimon_004.png")
-local p005 = render.load_image("./csgo/paimon/paimon_005.png")
-local p006 = render.load_image("./csgo/paimon/paimon_006.png")
-local p007 = render.load_image("./csgo/paimon/paimon_007.png")
-local p008 = render.load_image("./csgo/paimon/paimon_008.png")
-local p009 = render.load_image("./csgo/paimon/paimon_009.png")
-local p010 = render.load_image("./csgo/paimon/paimon_0010.png")
-local p011 = render.load_image("./csgo/paimon/paimon_0011.png")
-local p012 = render.load_image("./csgo/paimon/paimon_0012.png")
-local p013 = render.load_image("./csgo/paimon/paimon_0013.png")
-local p014 = render.load_image("./csgo/paimon/paimon_0014.png")
-local p015 = render.load_image("./csgo/paimon/paimon_0015.png")
-local p016 = render.load_image("./csgo/paimon/paimon_0016.png")
-local p017 = render.load_image("./csgo/paimon/paimon_0017.png")
-local p018 = render.load_image("./csgo/paimon/paimon_0018.png")
-local p019 = render.load_image("./csgo/paimon/paimon_0019.png")
-local p020 = render.load_image("./csgo/paimon/paimon_0020.png")
-local p021 = render.load_image("./csgo/paimon/paimon_0021.png")
-local p022 = render.load_image("./csgo/paimon/paimon_0022.png")
-local p023 = render.load_image("./csgo/paimon/paimon_0023.png")
-local p024 = render.load_image("./csgo/paimon/paimon_0024.png")
-local p025 = render.load_image("./csgo/paimon/paimon_0025.png")
-local p026 = render.load_image("./csgo/paimon/paimon_0026.png")
-local p027 = render.load_image("./csgo/paimon/paimon_0027.png")
-local p028 = render.load_image("./csgo/paimon/paimon_0028.png")
-local p029 = render.load_image("./csgo/paimon/paimon_0029.png")
-local p030 = render.load_image("./csgo/paimon/paimon_0030.png")
-local p031 = render.load_image("./csgo/paimon/paimon_0031.png")
-local p032 = render.load_image("./csgo/paimon/paimon_0032.png")
-local p033 = render.load_image("./csgo/paimon/paimon_0033.png")
-local p034 = render.load_image("./csgo/paimon/paimon_0034.png")
-local p035 = render.load_image("./csgo/paimon/paimon_0035.png")
-local p036 = render.load_image("./csgo/paimon/paimon_0036.png")
-local p037 = render.load_image("./csgo/paimon/paimon_0037.png")
-local p038 = render.load_image("./csgo/paimon/paimon_0038.png")
-local p039 = render.load_image("./csgo/paimon/paimon_0039.png")
-local p040 = render.load_image("./csgo/paimon/paimon_0040.png")
-local p041 = render.load_image("./csgo/paimon/paimon_0041.png")
-local p042 = render.load_image("./csgo/paimon/paimon_0042.png")
-local p043 = render.load_image("./csgo/paimon/paimon_0043.png")
-local p044 = render.load_image("./csgo/paimon/paimon_0044.png")
-local p045 = render.load_image("./csgo/paimon/paimon_0045.png")
-local p046 = render.load_image("./csgo/paimon/paimon_0046.png")
-local p047 = render.load_image("./csgo/paimon/paimon_0047.png")
-local p048 = render.load_image("./csgo/paimon/paimon_0048.png")
-local p049 = render.load_image("./csgo/paimon/paimon_0049.png")
-local p050 = render.load_image("./csgo/paimon/paimon_0050.png")
-local p051 = render.load_image("./csgo/paimon/paimon_0051.png")
-local p052 = render.load_image("./csgo/paimon/paimon_0052.png")
+-- installer: lmaobox's http library can't carry binary files (the data stops at the first zero byte), so the
+-- files are downloaded as base64 text copies (paimon_frames_b64/, paimon_voice_b64/, Genshin_Impact.b64) and
+-- turned back into the real files a little every frame. Small files first, the 15 MB font last. Requests are
+-- started from the frame loop only (starting one inside a download's callback made lmaobox answer
+-- "ERROR READ Network read"), and a failed file is tried again from a second server.
+local MIRRORS = { "https://cdn.jsdelivr.net/gh/eintoaster/paimon@main/", "https://raw.githubusercontent.com/eintoaster/paimon/main/" }
+local inst = { state = "idle", idx = 0, done = 0, failed = 0, current = "", list = nil, job = nil, why = nil,
+               waiting = false, result = nil, try = 1, startNext = false }
 
-function renderPaimon(pos, size)
-    if frames == 0 then
-        render.texture(p000.id, pos, size)
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
+local function fileList()
+    if inst.list then return inst.list end
+    local l = {}
+    for i = 0, FRAMES - 1 do l[#l + 1] = { "paimon_frames_b64/frame_" .. i .. ".b64", "destiny_files/paimon/frames/frame_" .. i .. ".png", "png" } end
+    for i = 1, VOICES do l[#l + 1] = { "paimon_voice_b64/" .. i .. ".b64", "tf/sound/destiny_paimon/" .. i .. ".wav", "wav" } end
+    l[#l + 1] = { "Genshin_Impact.b64", "destiny_files/paimon/Genshin_Impact.ttf", "ttf" }
+    inst.list = l
+    return l
+end
 
-            frames = 1
-        end
+-- base64 -> bytes for the text between positions i and j
+local B64 = {}
+do
+    local a = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    for i = 1, 64 do B64[a:byte(i)] = i - 1 end
+end
+local b64buf = {}
+local function b64(s, i, j)
+    local out, bn = {}, 0
+    for k = i, j, 4 do
+        local a, b, c, d = string.byte(s, k, k + 3)
+        local va, vb = B64[a], B64[b]
+        if not va or not vb then break end
+        local vc, vd = B64[c], B64[d]
+        local v = va * 262144 + vb * 4096 + (vc or 0) * 64 + (vd or 0)
+        bn = bn + 1; b64buf[bn] = v >> 16
+        if vc then bn = bn + 1; b64buf[bn] = (v >> 8) & 255 end
+        if vd then bn = bn + 1; b64buf[bn] = v & 255 end
+        if bn >= 3000 then out[#out + 1] = string.char(table.unpack(b64buf, 1, bn)); bn = 0 end
     end
+    if bn > 0 then out[#out + 1] = string.char(table.unpack(b64buf, 1, bn)) end
+    return table.concat(out)
+end
 
-    if frames == 1 then
-        render.texture(p001.id, pos, size)
+local SIG = { png = function(h) return h:sub(2, 4) == "PNG" end, wav = function(h) return h:sub(1, 4) == "RIFF" end,
+              ttf = function(h) return h:sub(1, 4) == "\0\1\0\0" or h:sub(1, 4) == "OTTO" or h:sub(1, 4) == "true" end }
 
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
+local function check(f, data)
+    if type(data) ~= "string" or #data < 16 then return nil, "got " .. (type(data) == "string" and #data or 0) .. " bytes" end
+    if data:sub(1, 5) == "ERROR" then return nil, data:sub(1, 40) end
+    if #data % 4 ~= 0 or data:find("[^%w%+/=]") then data = data:gsub("[^%w%+/=]", "") end
+    if not SIG[f[3]](b64(data, 1, 16)) then return nil, "not a " .. f[3] end
+    return data
+end
 
-            frames = 2
+-- the callback only hands the answer over; everything else happens in the frame loop
+local function request(f)
+    inst.waiting, inst.result = true, nil
+    local ok = pcall(http.GetAsync, MIRRORS[inst.try] .. f[1], function(data) inst.result = { f = f, data = data } end)
+    if not ok then inst.result = { f = f, data = nil } end
+end
+
+local clock = (os and os.clock) or function() return 0 end
+
+-- runs every frame while installing: start the next download, take an answer, decode about 3 ms worth
+local function installWork()
+    if inst.state ~= "downloading" then return end
+    if inst.startNext and not inst.waiting and not inst.job then
+        inst.startNext = false
+        inst.idx, inst.try = inst.idx + 1, 1
+        local f = fileList()[inst.idx]
+        if not f then
+            inst.state = (inst.failed == 0) and "done" or "failed"
+            print("[paimon] install finished: " .. inst.done .. " files, " .. inst.failed .. " failed"
+                  .. (inst.why and (" (last: " .. inst.why .. ")") or ""))
+            return
         end
+        inst.current = f[2]:match("[^/]+$")
+        request(f)
+        return
     end
-
-    if frames == 2 then
-        render.texture(p002.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 3
+    if inst.waiting and inst.result then
+        local f, data = inst.result.f, inst.result.data
+        inst.waiting, inst.result = false, nil
+        local text, why = check(f, data)
+        if not text then
+            if inst.try < #MIRRORS then inst.try = inst.try + 1; request(f); return end
+            inst.failed, inst.why, inst.startNext = inst.failed + 1, inst.current .. ": " .. why, true
+            return
         end
-    end
-
-    if frames == 3 then
-        render.texture(p003.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 4
+        local ok, fh = pcall(io.open, f[2], "wb")
+        if not ok or not fh then
+            inst.failed, inst.why, inst.startNext = inst.failed + 1, "can't write " .. f[2], true
+            return
         end
+        inst.job = { data = text, pos = 1, fh = fh }
     end
-
-    if frames == 4 then
-        render.texture(p004.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 5
-        end
-    end
-
-    if frames == 5 then
-        render.texture(p005.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 6
-        end
-    end
-
-    if frames == 6 then
-        render.texture(p006.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 7
-        end
-    end
-
-    if frames == 7 then
-        render.texture(p007.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 8
-        end
-    end
-
-    if frames == 8 then
-        render.texture(p008.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 9
-        end
-    end
-
-    if frames == 9 then
-        render.texture(p009.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 10
-        end
-    end
-
-    if frames == 10 then
-        render.texture(p010.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 11
-        end
-    end
-
-    if frames == 11 then
-        render.texture(p011.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 12
-        end
-    end
-
-    if frames == 12 then
-        render.texture(p012.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 13
-        end
-    end
-
-    if frames == 13 then
-        render.texture(p013.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 14
-        end
-    end
-
-    if frames == 14 then
-        render.texture(p014.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 15
-        end
-    end
-
-    if frames == 15 then
-        render.texture(p015.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 16
-        end
-    end
-
-    if frames == 16 then
-        render.texture(p016.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 17
-        end
-    end
-
-    if frames == 17 then
-        render.texture(p017.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 18
-        end
-    end
-
-    if frames == 18 then
-        render.texture(p018.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 19
-        end
-    end
-
-    if frames == 19 then
-        render.texture(p019.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 20
-        end
-    end
-
-    if frames == 20 then
-        render.texture(p020.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 21
-        end
-    end
-
-    if frames == 21 then
-        render.texture(p021.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 22
-        end
-    end
-
-    if frames == 22 then
-        render.texture(p022.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 23
-        end
-    end
-
-    if frames == 23 then
-        render.texture(p023.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 24
-        end
-    end
-
-    if frames == 24 then
-        render.texture(p024.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 25
-        end
-    end
-
-    if frames == 25 then
-        render.texture(p025.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 26
-        end
-    end
-
-    if frames == 26 then
-        render.texture(p026.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 27
-        end
-    end
-
-    if frames == 27 then
-        render.texture(p027.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 28
-        end
-    end
-
-    if frames == 28 then
-        render.texture(p028.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 29
-        end
-    end
-
-    if frames == 29 then
-        render.texture(p029.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 30
-        end
-    end
-
-    if frames == 30 then
-        render.texture(p030.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 31
-        end
-    end
-
-    if frames == 31 then
-        render.texture(p031.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 32
-        end
-    end
-
-    if frames == 32 then
-        render.texture(p032.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 33
-        end
-    end
-
-    if frames == 33 then
-        render.texture(p033.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 34
-        end
-    end
-
-    if frames == 34 then
-        render.texture(p034.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 35
-        end
-    end
-
-    if frames == 35 then
-        render.texture(p035.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 36
-        end
-    end
-
-    if frames == 36 then
-        render.texture(p036.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 37
-        end
-    end
-
-    if frames == 37 then
-        render.texture(p037.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 38
-        end
-    end
-
-    if frames == 38 then
-        render.texture(p038.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 39
-        end
-    end
-
-    if frames == 39 then
-        render.texture(p039.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 40
-        end
-    end
-
-    if frames == 40 then
-        render.texture(p040.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 41
-        end
-    end
-
-    if frames == 41 then
-        render.texture(p041.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 42
-        end
-    end
-
-    if frames == 42 then
-        render.texture(p042.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 43
-        end
-    end
-
-    if frames == 43 then
-        render.texture(p043.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 44
-        end
-    end
-
-    if frames == 44 then
-        render.texture(p044.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 45
-        end
-    end
-
-    if frames == 45 then
-        render.texture(p045.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 46
-        end
-    end
-
-    if frames == 46 then
-        render.texture(p046.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 47
-        end
-    end
-
-    if frames == 47 then
-        render.texture(p047.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 48
-        end
-    end
-
-    if frames == 48 then
-        render.texture(p048.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 49
-        end
-    end
-
-    if frames == 49 then
-        render.texture(p049.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 50
-        end
-    end
-
-    if frames == 50 then
-        render.texture(p050.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 51
-        end
-    end
-
-    if frames == 51 then
-        render.texture(p051.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 52
-        end
-    end
-
-    if frames == 52 then
-        render.texture(p052.id, pos, size)
-
-        if global_vars.real_time() > animTime + 0.030 then
-            animTime = global_vars.real_time();
-
-            frames = 0
+    local job = inst.job
+    if job then
+        local t0, n = clock(), #job.data
+        repeat
+            local j = math.min(n, job.pos + 49151)
+            job.fh:write(b64(job.data, job.pos, j))
+            job.pos = j + 1
+        until job.pos > n or (clock() - t0) > 0.003
+        if job.pos > n then
+            job.fh:close()
+            inst.job = nil
+            inst.done = inst.done + 1
+            inst.startNext = true
         end
     end
 end
 
-function messageBox(pos)
-    if show then
-        if message == nil then
-            return
-        else
-            local size = render.get_text_size(console, message)
-            local tempTime = global_vars.real_time()
+local function install()
+    if inst.state == "downloading" then return end
+    if not http or not io then print("[paimon] can't install: lmaobox blocks downloads or files"); return end
+    for _, d in ipairs({ "destiny_files", "destiny_files/paimon", "destiny_files/paimon/frames", "tf/sound", "tf/sound/destiny_paimon" }) do
+        pcall(filesystem.CreateDirectory, d)
+    end
+    inst.state, inst.idx, inst.done, inst.failed, inst.why = "downloading", 0, 0, 0, nil
+    inst.job, inst.waiting, inst.result, inst.try, inst.startNext = nil, false, nil, 1, true
+end
 
-            render.circle_filled(pos, 9, color_t.new(255, 255, 255, 255))
-            render.circle(vec2_t.new(pos.x - 1, pos.y), 9, color_t.new(0, 0, 0, 255))
-            render.circle_filled(vec2_t.new(pos.x + size.x, pos.y), 9, color_t.new(255, 255, 255, 255))
-            render.circle(vec2_t.new(pos.x + 1 + size.x, pos.y), 9, color_t.new(0, 0, 0, 255))
+---------------------------------------------------------------------------
+-- Drawing helpers
+---------------------------------------------------------------------------
+local function round(v) return floor(v + 0.5) end
+local function clamp(v, a, b) return max(a, min(b, v)) end
+local function now() return globals.RealTime() end
 
-
-            render.rect(vec2_t.new(pos.x, pos.y - 9), vec2_t.new(size.x / 2 + 65, 9 + 10), color_t.new(0, 0, 0, 255))
-
-            render.polyline({vec2_t.new(pos.x + size.x / 2 + 64, pos.y + 9), vec2_t.new(pos.x + size.x / 2 + 64, pos.y + 9 + 11), vec2_t.new(pos.x + size.x / 2 + 73, pos.y + 9)}, color_t.new(0, 0, 0, 255))
-            render.polygon({vec2_t.new(pos.x + size.x / 2 + 65, pos.y + 8), vec2_t.new(pos.x + size.x / 2 + 65, pos.y + 9 + 10), vec2_t.new(pos.x + size.x / 2 + 73, pos.y + 8)}, color_t.new(255, 255, 255, 255))
-
-            render.rect(vec2_t.new(pos.x + size.x / 2 + 73, pos.y - 9), vec2_t.new(size.x / 2 - 73, 9 + 10), color_t.new(0, 0, 0, 255))
-
-
-            render.rect(vec2_t.new(pos.x + size.x / 2 + 65, pos.y - 9), vec2_t.new(size.x / 2 - 73, 1), color_t.new(0, 0, 0, 255))
-
-
-            render.rect_filled(vec2_t.new(pos.x, pos.y - 8), vec2_t.new(size.x, 8 + 9), color_t.new(255, 255, 255, 255))
-
-
-            render.text(console, message, vec2_t.new(pos.x, pos.y - 7), color_t.new(0, 0, 0, 255))
-
-            if tempTime >= time + paimon_logs_timer:get() then
-                    show = false
-            end
+local WHITE = draw.CreateTextureRGBA(string.rep(string.char(255), 16), 2, 2)
+local CIRCLE                                                   -- a smooth 64 px circle picture
+do
+    local px = {}
+    for y = 0, 63 do
+        for x = 0, 63 do
+            local d = math.sqrt((x + 0.5 - 32) ^ 2 + (y + 0.5 - 32) ^ 2)
+            px[#px + 1] = string.char(255, 255, 255, round(clamp(31.5 - d, 0, 1) * 255))
         end
-    else
-        time = global_vars.real_time()
+    end
+    CIRCLE = draw.CreateTextureRGBA(table.concat(px), 64, 64)
+end
+
+local function setColor(c, a) draw.Color(c[1], c[2], c[3], clamp(round(a or 255), 1, 255)) end
+
+-- a pill: a rectangle with a half circle on each end
+local function pill(x, y, w, h, c, a)
+    setColor(c, a)
+    local r = h / 2
+    draw.FilledRect(round(x + r), round(y), round(x + w - r), round(y + h))
+    draw.TexturedRect(CIRCLE, round(x), round(y), round(x + h), round(y + h))
+    draw.TexturedRect(CIRCLE, round(x + w - h), round(y), round(x + w), round(y + h))
+end
+
+local fontSmall = draw.CreateFont("Segoe UI", 16, 600, FONTFLAG_ANTIALIAS)
+local fontGenshin = nil
+local function bubbleFont()
+    if not GENSHIN_FONT then return fontSmall end
+    if fontGenshin == nil then
+        fontGenshin = false
+        if installed() then
+            pcall(draw.AddFontResource, "destiny_files/paimon/Genshin_Impact.ttf")
+            local ok, id = pcall(draw.CreateFont, "Default_SC", 17, 600, FONTFLAG_ANTIALIAS)   -- (the font's own name)
+            if ok and id then fontGenshin = id end
+        end
+    end
+    return fontGenshin or fontSmall
+end
+
+---------------------------------------------------------------------------
+-- Paimon
+---------------------------------------------------------------------------
+local tex, loaded = {}, 0
+local frame, frameAt = 0, 0
+local pos = nil                                                -- {x, y}, nil = bottom right
+local drag = nil
+local wasDown = false
+local bubble = { text = nil, t0 = -99, dur = 3.2 }
+local voiceUntil, lastVoice = -99, 0
+
+-- where she was dragged to last time
+local function loadPos()
+    local ok, f = pcall(io.open, "destiny_files/paimon/position.txt", "r")
+    if ok and f then
+        local s = f:read("*a") or ""
+        f:close()
+        local x, y = s:match("(-?%d+),(-?%d+)")
+        if x then pos = { tonumber(x), tonumber(y) } end
+    end
+end
+local function savePos()
+    if not pos then return end
+    local ok, f = pcall(io.open, "destiny_files/paimon/position.txt", "w")
+    if ok and f then f:write(floor(pos[1]) .. "," .. floor(pos[2])); f:close() end
+end
+loadPos()
+
+local frameDir
+local function framePath(i)
+    if not frameDir then
+        local ok, gd = pcall(engine.GetGameDir)
+        gd = (ok and gd) and tostring(gd) or ""
+        frameDir = gd:gsub("[\\/]tf[\\/]?$", "") .. "\\destiny_files\\paimon\\frames\\frame_"
+    end
+    return frameDir .. i .. ".png"
+end
+
+local function loadSome()                                       -- a few pictures per frame, no hitch
+    local n = 0
+    while loaded < FRAMES and n < 4 do
+        local ok, id = pcall(draw.CreateTexture, framePath(loaded))
+        tex[loaded] = ok and id or false
+        loaded = loaded + 1
+        n = n + 1
     end
 end
 
-callbacks.add(e_callbacks.PAINT, function()
-    local screen = render.get_screen_size()
-    local in_game = engine.is_in_game()
+-- her lines (%c = class, %w = weapon)
+local LINES = {
+    kill      = { "Paimon saw that! Nice one!", "Another one down~ Ehe!", "Too easy! Paimon could do that too... probably.",
+                  "Woohoo! Paimon is cheering for you!", "That's how it's done, traveler!" },
+    killClass = { "Bye bye, %c! Hehe~", "That %c is toast!", "Paimon gives that %c a zero out of ten!", "One %c down! Who's next?" },
+    headshot  = { "Right in the head! Paimon is impressed!", "Headshot! Paimon didn't even blink!", "Boom! Perfect aim!" },
+    backstab  = { "So sneaky! Paimon didn't even see you!", "Right in the back! Hehe~" },
+    death     = { "Hey! That's not fair!", "Ouch... Paimon felt that one.", "Get up! We're not done yet!" },
+    deathBy   = { "That %c is so mean! Paimon gives them an ugly nickname!", "Grr, that %c again!" },
+}
+local CLASSES = { "Scout", "Sniper", "Soldier", "Demoman", "Medic", "Heavy", "Pyro", "Spy", "Engineer" }
 
-    if paimon_enable:get() == true then
-        local w = nil
-        local h = nil
+local function say(text, dur) bubble.text, bubble.t0, bubble.dur = text, now(), dur or 3.2 end
+local function sayLine(kind, class)
+    local list = LINES[kind]
+    local s = list[math.random(#list)]
+    if s:find("%%c") then
+        if not class then s = LINES.kill[math.random(#LINES.kill)] else s = s:gsub("%%c", class) end
+    end
+    say(s)
+end
 
-        local tp = menu.find("Visuals", "View", "Thirdperson", "Enable")[2]
-        local tpDistance = menu.find("Visuals", "View", "Thirdperson", "Distance")
+local function voiceLength(i)
+    local ok, f = pcall(io.open, "tf/sound/destiny_paimon/" .. i .. ".wav", "rb")
+    if not ok or not f then return 2 end
+    local size = f:seek("end")
+    f:close()
+    return (size or 0) / (44100 * 4)                          -- 16-bit stereo 44.1 kHz
+end
 
-        if w == nil then
-            if tpDistance:get() >= 200 then
-                if tp == false then
-                    w = math.floor(397 / 3)
-                else
-                    w = math.floor(397 / 4)
-                end
-            else
-                w = math.floor(397 / 3)
-            end
-        end
+local function speak()
+    if now() < voiceUntil or not installed() then return end
+    local i
+    repeat i = math.random(1, VOICES) until i ~= lastVoice
+    lastVoice = i
+    pcall(engine.PlaySound, "destiny_paimon/" .. i .. ".wav")
+    voiceUntil = now() + voiceLength(i)
+end
 
-        if h == nil then
-            if tpDistance:get() >= 200 then
-                if tp == false then
-                    h = math.floor(465 / 3)
-                else
-                    h = math.floor(465 / 4)
-                end
-            else
-                h = math.floor(465 / 3)
-            end
-        end
+local BG, EDGE, TXT = { 236, 229, 216 }, { 196, 186, 166 }, { 73, 83, 102 }
 
-        if not in_game then
-            return
-        end
+local function drawBubble(cx, bottomY, s, alpha)
+    local font = bubbleFont()
+    draw.SetFont(font)
+    local tw, th = draw.GetTextSize(s)
+    local w, h = tw + 30, 30
+    local x, y = cx - w / 2, bottomY - h - 8
+    pill(x - 1, y - 1, w + 2, h + 2, EDGE, 200 * alpha)
+    pill(x, y, w, h, BG, 245 * alpha)
+    setColor(BG, 245 * alpha)
+    draw.TexturedPolygon(WHITE, { { cx - 7, y + h - 1, 0.5, 0.5 }, { cx + 7, y + h - 1, 0.5, 0.5 }, { cx, y + h + 7, 0.5, 0.5 } }, false)
+    setColor(TXT, 255 * alpha)
+    draw.Text(round(cx - tw / 2), round(y + (h - th) / 2), s)
+end
 
-        if tp:get() == true then
-            renderPaimon(vec2_t.new(screen.x / 2 - w / 2 + 400 - tpDistance:get(), screen.y / 2 - h / 2), vec2_t.new(w, h))
+local function onDraw()
+    if engine.IsTakingScreenshot() then return end
+    local sw, sh = draw.GetScreenSize()
+
+    if not installed() then
+        if inst.state == "idle" then install() end                 -- installs by itself the first time
+        installWork()
+        draw.SetFont(fontSmall)
+        draw.Color(255, 255, 255, 230)
+        local msg = (inst.state == "downloading")
+            and string.format("Installing Paimon... %d / %d  (%s)", inst.done + inst.failed, #fileList(), inst.current)
+            or ("Paimon: install failed (" .. tostring(inst.why) .. ") - reload the script to try again")
+        draw.Text(20, sh - 40, msg)
+        return
+    end
+
+    loadSome()
+    local t = now()
+    local steps = floor((t - frameAt) / 0.03)                       -- 30 ms per frame, like before
+    if steps > 0 then
+        frame = (frame + steps) % FRAMES
+        frameAt = (steps > 10) and t or (frameAt + steps * 0.03)
+    end
+
+    local W, H = W0 / 2.8 * SIZE, H0 / 2.8 * SIZE
+    local x = pos and pos[1] or (sw - W - 20)
+    local y = pos and pos[2] or (sh - H - 20)
+
+    -- drag her while the lmaobox menu is open
+    local menuOpen = gui.IsMenuOpen()
+    local down = input.IsButtonDown(MOUSE_LEFT)
+    local ok, m = pcall(input.GetMousePos)
+    local mx, my = (ok and type(m) == "table") and m[1] or 0, (ok and type(m) == "table") and m[2] or 0
+    if menuOpen and down and not wasDown and mx >= x and mx < x + W and my >= y and my < y + H then
+        drag = { mx - x, my - y }
+    end
+    if drag then
+        if down and menuOpen then
+            x, y = clamp(mx - drag[1], 0, sw - W), clamp(my - drag[2], 0, sh - H)
+            pos = { x, y }
         else
-            renderPaimon(vec2_t.new(screen.x / 2 - w / 2, screen.y - h / 2 - 190), vec2_t.new(w, h))
-        end
-
-        if paimon_logs:get() == true then
-            if tp:get() == true then
-                messageBox(vec2_t.new(screen.x / 2 - w / 2 + 230 - tpDistance:get(), screen.y / 2 - h / 2 - 15))
-            else
-                messageBox(vec2_t.new(screen.x / 2 - w / 2 - 150, screen.y - h / 2 - 15 - 190))
-            end
+            drag = nil
+            savePos()
         end
     end
+    wasDown = down
+
+    local id = tex[frame] or tex[0]
+    if id then
+        draw.Color(255, 255, 255, 255)
+        draw.TexturedRect(id, round(x), round(y), round(x + W), round(y + H))
+    end
+
+    if bubble.text and t - bubble.t0 < bubble.dur then
+        local a = clamp((t - bubble.t0) / 0.2, 0, 1) * clamp((bubble.dur - (t - bubble.t0)) / 0.3, 0, 1)
+        drawBubble(x + W / 2, y + H * 0.06, bubble.text, a)
+    end
+end
+
+---------------------------------------------------------------------------
+-- Game events
+---------------------------------------------------------------------------
+local function myUserID()
+    local lp = entities.GetLocalPlayer()
+    if not lp then return nil end
+    local info = client.GetPlayerInfo(lp:GetIndex())
+    return info and info.UserID
+end
+
+local function classOf(uid)
+    local ent = entities.GetByUserID(uid)
+    if not ent then return nil end
+    local ok, c = pcall(ent.GetPropInt, ent, "m_PlayerClass", "m_iClass")
+    return ok and CLASSES[c] or nil
+end
+
+local function nameOf(uid)
+    local ok, n = pcall(client.GetPlayerNameByUserID, uid)
+    return (ok and n and n ~= "") and n or "someone"
+end
+
+local function onEvent(e)
+    local name = e:GetName()
+    if name ~= "player_death" and name ~= "player_hurt" then return end
+    local mine = myUserID()
+    if not mine then return end
+    local victim, attacker = e:GetInt("userid"), e:GetInt("attacker")
+
+    if name == "player_hurt" then
+        if HIT_LOGS and attacker == mine and victim ~= mine then
+            local class = classOf(victim)
+            local who = nameOf(victim) .. (class and (" (" .. class .. ")") or "")
+            local hp = e:GetInt("health")
+            local crit = e:GetInt("crit") == 1 and "Crit! " or ""
+            if hp > 0 then say(string.format("%sYou hit %s for %d damage! %d HP left!", crit, who, e:GetInt("damageamount"), hp), HIT_LOG_TIME)
+            else say(string.format("%sYou hit %s for %d damage!", crit, who, e:GetInt("damageamount")), HIT_LOG_TIME) end
+        end
+        return
+    end
+
+    if attacker == mine and victim ~= mine then
+        local custom = e:GetInt("customkill")
+        if KILL_LINES then
+            if custom == 1 then sayLine("headshot")
+            elseif custom == 2 then sayLine("backstab")
+            elseif math.random() < 0.5 then sayLine("killClass", classOf(victim))
+            else sayLine("kill") end
+        end
+        if VOICE_ON_KILL then speak() end
+    elseif victim == mine and KILL_LINES then
+        if attacker ~= mine and attacker ~= 0 and math.random() < 0.6 then sayLine("deathBy", classOf(attacker))
+        else sayLine("death") end
+    end
+end
+
+callbacks.Register("Draw", "paimon_draw", function()
+    local ok, err = pcall(onDraw)
+    if not ok and not inst.reported then inst.reported = true; print("[paimon] " .. tostring(err)) end
+end)
+callbacks.Register("FireGameEvent", "paimon_events", function(e) pcall(onEvent, e) end)
+callbacks.Register("Unload", "paimon_unload", function()
+    savePos()
+    for _, id in pairs(tex) do if id then pcall(draw.DeleteTexture, id) end end
+    pcall(draw.DeleteTexture, WHITE)
+    pcall(draw.DeleteTexture, CIRCLE)
+    callbacks.Unregister("Draw", "paimon_draw")
+    callbacks.Unregister("FireGameEvent", "paimon_events")
 end)
 
-callbacks.add(e_callbacks.AIMBOT_SHOOT, function(shot)
-    local target = shot.player
-    local damage = shot.damage
-    local hitgroup = hitboxes[shot.hitgroup]
-    local hitchance = shot.hitchance
-
-    message = string.format("You shot at %s for %s damage! He has %s HP left! You shot his %s with a Hit Chance of %s!", target:get_name(), damage, target:get_prop("m_iHealth"), hitgroup, hitchance)
-    show = true
-end)
-
-callbacks.add(e_callbacks.AIMBOT_MISS, function(miss)
-    local target = miss.player
-    local wanted_hitgroup = hitboxes[miss.aim_hitgroup]
-    local hitchance = miss.aim_hitchance
-    local reason = miss.reason_string
-
-    message = string.format("You missed shot to %s due to %s! He has %s HP left! You tried hit his %s with a Hit Chance of %s!", target:get_name(), reason, target:get_prop("m_iHealth"), wanted_hitgroup, hitchance)
-    show = true
-end)
+print("[paimon] loaded" .. (installed() and "" or " - installing her files from GitHub..."))
