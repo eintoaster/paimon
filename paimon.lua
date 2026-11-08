@@ -26,7 +26,6 @@ local GENSHIN_FONT  = true    -- use the Genshin font in her bubble
 ---------------------------------------------------------------------------
 -- Files
 ---------------------------------------------------------------------------
-local REPO = "https://raw.githubusercontent.com/eintoaster/paimon/main/"
 local FRAMES, VOICES = 53, 57
 local W0, H0 = 397, 465                                     -- size of one frame
 local floor, min, max = math.floor, math.min, math.max
