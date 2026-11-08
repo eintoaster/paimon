@@ -98,8 +98,10 @@ end
 -- the callback only hands the answer over; everything else happens in the frame loop
 local function request(f)
     inst.waiting, inst.result = true, nil
-    local ok = pcall(http.GetAsync, MIRRORS[inst.try] .. f[1], function(data) inst.result = { f = f, data = data } end)
-    if not ok then inst.result = { f = f, data = nil } end
+    -- (waits for the answer: lmaobox's background downloads fail above ~20 KB with "WinINet Error Code: 6",
+    --  the waiting one works. The game pauses for a moment per file, only while installing.)
+    local ok, data = pcall(http.Get, MIRRORS[inst.try] .. f[1])
+    inst.result = { f = f, data = ok and data or nil }
 end
 
 local clock = (os and os.clock) or function() return 0 end
