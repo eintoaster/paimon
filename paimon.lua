@@ -365,7 +365,11 @@ local function onDraw()
     local id = tex[frame] or tex[0]
     if id then
         draw.Color(255, 255, 255, 255)
-        draw.TexturedRect(id, round(x), round(y), round(x + W), round(y + H))
+        -- lmaobox puts each 397x465 frame into a 512x512 texture (top-left); the rest would show as the purple
+        -- "missing texture" checker, so only the part with Paimon in it is drawn
+        local U, V = 397 / 512, 465 / 512
+        draw.TexturedPolygon(id, { { round(x), round(y), 0, 0 }, { round(x + W), round(y), U, 0 },
+            { round(x + W), round(y + H), U, V }, { round(x), round(y + H), 0, V } }, false)
     end
 
     if bubble.text and t - bubble.t0 < bubble.dur then
